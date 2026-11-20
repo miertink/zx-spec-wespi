@@ -50,69 +50,31 @@ language; the tapes on the ESP32 stay.
 
 ## Hardware
 
-### Parts
-
-| Qty | Part |
-|----:|------|
-| 1 | ESP32 DevKit (ESP32-WROOM, 4 MB flash) |
-| 1 | 1 kΩ resistor |
-| 1 | 22 kΩ resistor |
-| 1 | 100 kΩ resistor |
-| 1 | 100 nF capacitor (ceramic or film) |
-| 2 | 3.5 mm mono jack cables (EAR and MIC) |
-| 1 | Mini breadboard (170 holes) and 4 female-to-male jumper wires |
-
-### Assembly (no soldering)
+An ESP32 DevKit (ESP32-WROOM, 4 MB flash), three resistors (1 kΩ, 22 kΩ,
+100 kΩ), a 100 nF capacitor and two mono 3.5 mm audio cables; for the assembly
+below, a mini breadboard and 4 female-to-male jumper wires. No soldering.
 
 ![Assembly: ESP32, breadboard and the EAR and MIC cables](docs/img/wiring.svg)
 
-
 ![How to recognise the parts](docs/img/parts-en.svg)
 
-The picture shows the common 30-pin DevKit; on 38-pin boards follow the names
-printed next to the pins (VP may read SVP or 36, D22 may read IO22). The same
-instructions in Portuguese and Spanish are on the
-[installer page](https://miertink.github.io/zx-spec-wespi/#hw-pt).
+On 38-pin boards follow the names printed next to the pins (VP may read SVP or
+36, D22 may read IO22). The same pictures with Portuguese and Spanish captions
+are on the [installer page](https://miertink.github.io/zx-spec-wespi/#hw-pt).
 
-### Schematic
+![Schematic](docs/img/schematic.svg)
 
-```
-  ESP32 DevKit                                          ZX Spectrum / TK90X
-
-  GPIO22  o-------------------------------------------o  EAR  (tape in)
-
-           3V3
-            |
-          [100k]
-            |          100 nF
-  GPIO36  o-+-----------||-----------[ 1k ]-----------o  MIC  (tape out)
-  (VP)      |
-          [22k]
-            |
-  GND     o-+-----------------------------------------o  GND  (sleeve of both jacks)
-```
-
-**EAR (ESP32 → Spectrum):** GPIO22 drives the EAR input directly with 3.3 V
-logic levels; the RMT peripheral generates the pulses (0.1 µs resolution).
-
-**MIC (Spectrum → ESP32):** the MIC output is very weak (on the TK90X the ULA
-output goes through 10 kΩ with 100 Ω to ground: about 50 mV) and swings around
-0 V, where the ESP32 ADC does not respond. So it is AC coupled through the
-100 nF capacitor and biased by the 100k / 22k divider to about 0.6 V, the
-middle of the ADC range at 0 dB attenuation (0–1 V). The 1 kΩ resistor protects
-the Spectrum output and the ADC pin. The high-pass corner (100 nF with ~19 kΩ)
-is around 85 Hz, well below the tape frequencies (~800 Hz to 2.6 kHz).
-
-GPIO36 is input-only and belongs to ADC1, which keeps working while WiFi is on
-(ADC2 does not). The ESP32 is powered from its own USB port; only the grounds
-are shared with the Spectrum.
-
-| Pin | Use |
-|-----|-----|
-| GPIO22 | EAR output (Kconfig: `ZXS_TAPE_OUT_GPIO`) |
-| GPIO36 (VP) | MIC input, ADC1 channel 0 |
-| GPIO0 | BOOT button: start / stop the menu loop (`ZXS_BUTTON_GPIO`) |
-| GPIO2, GPIO21 | Status LED (DevKit / TTGO boards) |
+- **EAR:** GPIO22 drives the EAR input directly with 3.3 V logic (RMT pulses,
+  0.1 µs resolution).
+- **MIC:** the Spectrum's MIC output is weak (about 50 mV on the TK90X) and
+  swings around 0 V, where the ADC does not respond. The 100 nF capacitor
+  couples it to the 100k / 22k divider, which holds GPIO36 at about 0.6 V, the
+  middle of the ADC range at 0 dB (0–1 V); the high-pass corner is ~85 Hz,
+  well below the tape tones. The 1 kΩ protects both sides. GPIO36 is on ADC1,
+  which keeps working with WiFi on.
+- The ESP32 is powered from its own USB port; only the grounds are shared with
+  the Spectrum. The BOOT button (GPIO0) starts / stops the menu loop; the
+  status LED is on GPIO2 (GPIO21 on TTGO boards).
 
 ## Using it
 
