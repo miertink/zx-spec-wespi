@@ -66,16 +66,6 @@ language; the tapes on the ESP32 stay.
 
 ![Assembly: ESP32, breadboard and the EAR and MIC cables](docs/img/wiring.svg)
 
-1. Yellow wire: ESP32 pin **VP** → hole **8j**.
-2. Red wire: pin **3V3** → hole **4j**.
-3. Black wire: pin **GND** (the one next to 3V3) → hole **8a**.
-4. Blue wire: pin **D22** → hole **16a**.
-5. 100 kΩ resistor: holes **4h** and **8h**.
-6. 22 kΩ resistor: holes **8e** and **8g**, across the middle channel.
-7. 100 nF capacitor: holes **8i** and **10i**.
-8. 1 kΩ resistor: holes **10g** and **14g**.
-9. MIC cable: middle wire → **14f**, braid → **8d**; the plug goes into the Spectrum's MIC socket.
-10. EAR cable: middle wire → **16c**, braid → **8b**; the plug goes into the Spectrum's EAR socket.
 
 ![How to recognise the parts](docs/img/parts-en.svg)
 
