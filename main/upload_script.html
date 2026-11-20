@@ -1,81 +1,194 @@
-<table class="fixed" border="0">
-    <col width="1000px" /><col width="500px" />
-    <tr><td>
-        <h2>ZX-Wespi File Server</h2>
-    </td><td>
-        <table border="0">
-            <tr>
-                <td>
-                    <label for="newfile">Upload a file</label>
-                </td>
-                <td colspan="2">
-                    <input id="newfile" type="file" onchange="setpath()" style="width:100%;">
-                </td>
-            </tr>
-            <tr>
-                <td>
-                    <label for="filepath">Set path on server</label>
-                </td>
-                <td>
-                    <input id="filepath" type="text" style="width:100%;">
-                </td>
-                <td>
-                    <button id="upload" type="button" onclick="upload()">Upload</button>
-                </td>
-            </tr>
-        </table>
-    </td></tr>
-</table>
+<section class="card">
+<h2>{{UP_TITLE}}</h2>
+<div class="up">
+<input id="newfile" type="file" multiple accept=".tap,.tzx,.pzx,.csw,.png,.svg,.jpg,.bin" onchange="setpath()">
+<input id="filepath" type="text" placeholder="{{UP_NAME}}">
+<button id="upload" class="btn go" type="button" onclick="upload()">{{UP_SEND}}</button>
+</div>
+<progress id="prog" max="100" value="0"></progress>
+<div id="upmsg" class="upmsg"></div>
+</section>
 <script>
+var NAME_MAX = 28;              /* SPIFFS: 32 with "/" and the terminator, some slack */
+var SIZE_MAX = 200 * 1024;      /* as file_server.c (a firmware update zx_iot.bin may be bigger) */
+/* Names the server accepts: letters, digits, '.', '-', '_' (anything else,
+ * spaces and accents included, becomes '_'); long ones are cut to NAME_MAX,
+ * keeping the extension */
+function fitname(n) {
+    n = n.trim().replace(/[^A-Za-z0-9._-]+/g, "_");
+    if (n.length <= NAME_MAX) return n;
+    var dot = n.lastIndexOf("."), ext = dot > 0 && n.length - dot <= 5 ? n.slice(dot) : "";
+    return n.slice(0, NAME_MAX - ext.length) + ext;
+}
+/* One file: its name can be edited. Several: each keeps its own name. */
 function setpath() {
-    var default_path = document.getElementById("newfile").files[0].name;
-    document.getElementById("filepath").value = default_path;
+    var files = document.getElementById("newfile").files, p = document.getElementById("filepath");
+    p.disabled = files.length > 1;
+    p.value = files.length == 1 ? fitname(files[0].name) : "";
+    p.placeholder = files.length > 1 ? '{{UP_MANY}}'.replace("%d", files.length) : '{{UP_NAME}}';
 }
+/* The files go one after the other; the server rebuilds the Spectrum menu
+ * once, a moment after the last. */
 function upload() {
-    var filePath = document.getElementById("filepath").value;
-    var upload_path = "/upload/" + filePath;
-    var fileInput = document.getElementById("newfile").files;
-
-    /* Max size of an individual file. Make sure this
-     * value is same as that set in file_server.c */
-    var MAX_FILE_SIZE = 200*1024;
-    var MAX_FILE_SIZE_STR = "200KB";
-
-    if (fileInput.length == 0) {
-        alert("No file selected!");
-    } else if (filePath.length == 0) {
-        alert("File path on server is not set!");
-    } else if (filePath.indexOf(' ') >= 0) {
-        alert("File path on server cannot have spaces!");
-    } else if (filePath[filePath.length-1] == '/') {
-        alert("File name not specified after path!");
-    } else if (fileInput[0].size > 980*1024) {
-        alert("File size must be less than 980KB!");
-    } else {
-        document.getElementById("newfile").disabled = true;
-        document.getElementById("filepath").disabled = true;
-        document.getElementById("upload").disabled = true;
-        document.getElementById("upload").innerHTML = "Uploading..."
-
-        var file = fileInput[0];
-        var xhttp = new XMLHttpRequest();
-        xhttp.onreadystatechange = function() {
-            if (xhttp.readyState == 4) {
-                if (xhttp.status == 200) {
-                    document.open();
-                    document.write(xhttp.responseText);
-                    document.close();
-                } else if (xhttp.status == 0) {
-                    alert("Server closed the connection abruptly!");
-                    location.reload()
-                } else {
-                    alert(xhttp.status + " Error!\n" + xhttp.responseText);
-                    location.reload()
-                }
-            }
-        };
-        xhttp.open("POST", upload_path, true);
-        xhttp.send(file);
+    var files = document.getElementById("newfile").files;
+    if (files.length == 0) { alert('{{UP_CHOOSE}}'); return; }
+    var list = [], failed = [];
+    for (var i = 0; i < files.length; i++) {
+        var name = fitname(files.length == 1 ? document.getElementById("filepath").value : files[i].name);
+        if (!name.length || name[name.length - 1] == "/") { alert('{{UP_NONAME}}'); return; }
+        if (!/zx_iot\.bin$/.test(name) && files[i].size > SIZE_MAX) failed.push(name + ": {{UP_BIG2}}");
+        else list.push({ f: files[i], name: name });
     }
+    var btn = document.getElementById("upload"), prog = document.getElementById("prog"),
+        msg = document.getElementById("upmsg");
+    /* back to the list at once; what failed is shown there (no alert to wait on) */
+    function done() {
+        try { if (failed.length) sessionStorage.setItem("upfail", failed.join("\n")); } catch (e) {}
+        location.href = "/";
+    }
+    if (!list.length) { done(); return; }
+    btn.disabled = true; btn.innerHTML = '{{UP_SENDING}}';
+    prog.style.display = "block";
+    function next(k) {
+        if (k == list.length) { done(); return; }
+        var it = list[k], x = new XMLHttpRequest();
+        msg.textContent = (list.length > 1 ? (k + 1) + " / " + list.length + " \u00b7 " : "") + it.name;
+        prog.value = 0;
+        x.upload.onprogress = function (e) { if (e.lengthComputable) prog.value = 100 * e.loaded / e.total; };
+        x.onreadystatechange = function () {
+            if (x.readyState != 4) return;
+            if (x.status != 200)
+                failed.push(it.name + ": " + (x.status ? '{{UP_ERR}} ' + x.status + " " + x.responseText : '{{UP_LOST}}'));
+            next(k + 1);
+        };
+        x.open("POST", "/upload/" + it.name, true);
+        x.send(it.f);
+    }
+    next(0);
 }
+/* failures of the last upload, after the reload */
+(function () {
+    var f = null;
+    try { f = sessionStorage.getItem("upfail"); sessionStorage.removeItem("upfail"); } catch (e) {}
+    if (!f) return;
+    var m = document.getElementById("upmsg");
+    m.className = "upmsg err";
+    m.textContent = '{{UP_FAILED}} ' + f.split("\n").join(" \u00b7 ");
+})();
+
+/* Tape status, live: /status every 2 s, the header updated in place */
+var DEC = "{{LANG}}" == "en" ? "." : ",";
+function fmtB(n) { return n >= 1024 ? (n / 1024).toFixed(1).replace(".", DEC) + " KB" : n + " B"; }
+function fmtT(ms) { var s = Math.round(ms / 1000); return s >= 60 ? Math.floor(s / 60) + "min" + ("0" + s % 60).slice(-2) + "s" : s + "s"; }
+function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return {"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]; }); }
+function btn(a, cls, label) { return '<form method="post" action="' + a + '"><button class="btn ' + cls + '" type="submit">' + label + '</button></form>'; }
+var ROM_BPS = 171;      /* ROM speed: ~1365 bits/s */
+var TYPES = ['{{TYPE0}}', '{{TYPE1}}', '{{TYPE2}}', '{{TYPE3}}'];
+/* block codes from the device (tape_file.c / zx_turbo.c) in words */
+function descOf(d) {
+    var p = String(d).split("|"), rest = p.slice(2).join("|");
+    switch (p[0]) {
+    case "H": return '{{D_HDR}}: ' + (TYPES[+p[1]] || "?") + ' "' + rest + '"';
+    case "F": return '{{D_DATA}}, flag 0x' + p[1];
+    case "R": return '{{D_ROM}}';
+    case "P": return '{{D_PROG}}';
+    case "T": return '{{D_TURBO}} ' + p[1];
+    case "G": return '{{D_GAME}}';
+    case "U": return '{{D_PURE}}';
+    case "W": return '{{D_DIRECT}}';
+    case "C": return '{{D_CSW}}';
+    case "Q": return '{{D_GEN}}';
+    case "A": return '{{D_DATA}}';
+    }
+    return d;
+}
+var stA = "";
+function stSet(id, html) { var e = document.getElementById(id); if (e && e.innerHTML != html) e.innerHTML = html; }
+function stShow(s) {
+    var dot = "", l1, l2 = "&mdash;", l3 = "&mdash;", w = 0, a;
+    if (s.state == "play" || s.state == "loop") {
+        dot = s.state == "loop" ? "loop" : "play";
+        l1 = (s.state == "loop" ? '{{LOOP}}' : '{{PLAYING}}') + ': <b>' + esc(s.current) + '</b>';
+        if (s.block >= 0) {
+            var done = Math.min(s.done, s.len), pct = s.len ? Math.round(100 * done / s.len) : 0;
+            var rate = s.block_ms > 1500 && done ? done * 1000 / s.block_ms : 0;
+            var eta = rate && s.len > done ? (s.len - done) / rate * 1000 : 0;
+            var fp = s.fsize ? Math.min(100, Math.round(100 * (s.fpos + done) / s.fsize)) : 0;
+            l2 = '{{BLOCK_C}} ' + s.block + (s.nblocks ? ' {{OF}} ' + s.nblocks : '') + ' &middot; ' + esc(descOf(s.desc));
+            w = pct;
+            l3 = (s.len ? fmtB(done) + ' {{OF}} ' + fmtB(s.len) + ' (' + pct + '%)' : '{{IN_PROGRESS}}')
+               + (rate ? ' &middot; ' + Math.round(rate) + ' B/s (' + (rate / ROM_BPS).toFixed(1).replace(".", DEC) + '&times; ROM)' : '')
+               + (eta ? ' &middot; {{REMAINING}}' + fmtT(eta) : '')
+               + (s.fsize ? ' &middot; {{FILE_PCT}} ' + fp + '%' : '') + ' &middot; ' + fmtT(s.play_ms);
+        }
+        a = btn("/stop", "warn", '&#9632; {{STOP}}');
+    } else if (s.state == "rec") {
+        var r = s.rec, what = r.name ? (TYPES[r.type] || "?") + ' "' + r.name + '"' : '';
+        dot = r.state == "saved" ? "play" : "rec";
+        if (r.state == "pilot") {
+            l1 = '{{REC_IN}}' + (r.name ? ': <b>' + esc(r.name) + '</b>' : '');
+            l2 = '{{REC_PILOT}}';
+            l3 = fmtT(r.ms);
+        } else if (r.state == "data") {
+            var hdr = r.flag == 0, rd = r.len ? Math.min(r.done, r.len) : r.done;
+            var pc = r.len ? Math.round(100 * rd / r.len) : 0;
+            var rt = r.ms > 1500 && rd ? rd * 1000 / r.ms : 0;
+            l1 = r.name && !hdr ? '{{REC}}: <b>' + esc(r.name) + '</b>' : '{{REC_IN}}';
+            l2 = hdr ? '{{D_HDR}}' : '{{D_DATA}}' + (what ? ': ' + esc(what) : ', flag 0x' + r.flag.toString(16).toUpperCase());
+            w = pc;
+            l3 = (r.len ? fmtB(rd) + ' {{OF}} ' + fmtB(r.len) + ' (' + pc + '%)' : fmtB(rd))
+               + (rt ? ' &middot; ' + Math.round(rt) + ' B/s' : '')
+               + (rt && r.len > rd ? ' &middot; {{REMAINING}}' + fmtT((r.len - rd) / rt * 1000) : '');
+        } else if (r.state == "wait") {
+            l1 = '{{REC}}: <b>' + esc(r.name) + '</b>';
+            l2 = '{{D_HDR}}: ' + esc(what) + ' &middot; ' + fmtB(r.hlen);
+            l3 = '{{REC_WAIT}}';
+        } else if (r.state == "saved") {
+            l1 = '{{SAVED}}: <b>' + esc(r.file || r.name) + '</b>';
+            l2 = what ? esc(what) + ' &middot; ' + fmtB(r.hlen) : '&mdash;';
+            w = 100;
+        } else {
+            l1 = '{{REC_ERR}}' + (r.name ? ': <b>' + esc(r.name) + '</b>' : '');
+            l2 = r.err == "E_CHECKSUM" ? '{{E_CHECKSUM}}' : r.err == "E_NOHDR" ? '{{E_NOHDR}}' : '{{E_UPLOAD}}';
+        }
+        a = btn("/play/_menu.tap", "", '&#9654; {{PLAY_MENU}}');
+    } else if (s.state == "next" || s.state == "paused") {
+        var n = s.next || {};
+        dot = "loop";
+        l1 = '{{STOPPED_AT}}: <b>' + esc(n.file ? n.file + ', {{BLOCK}} ' + n.block + ' {{OF}} ' + n.nblocks + ': '
+                                    + (TYPES[n.type] || "?") + ' "' + n.name + '"' : '{{STOP_MARK}}') + '</b>';
+        a = btn("/resume", "go", '&#9654; {{CONTINUE}}') + btn("/play/_menu.tap", "", '&#9654; {{PLAY_MENU}}');
+    } else {
+        l1 = '{{IDLE}}';
+        a = btn("/play/_menu.tap", "", '&#9654; {{PLAY_MENU}}');
+    }
+    var hd = document.querySelector("header");
+    if (hd) hd.className = dot && s.state != "next" && s.state != "paused" ? "spin" : "";
+    var d = document.getElementById("std");
+    if (d) d.className = "dot" + (dot ? " " + dot : "");
+    stSet("st1", l1);
+    stSet("st2", l2);
+    stSet("st3", l3);
+    var b = document.getElementById("stb");
+    if (b) b.style.width = w + "%";
+    if (a != stA) { stSet("sta", a); stA = a; }
+    if (s.state == "rec" && s.rec.state == "saved" && s.rec.file && stSavedFile != s.rec.file) {
+        if (stSavedFile !== null) setTimeout(function () { location.reload(); }, 1500);
+        stSavedFile = s.rec.file;
+    }
+    if (stSavedFile === null) stSavedFile = "";
+}
+var stSavedFile = null;
+function stPoll() {
+    var x = new XMLHttpRequest();
+    x.timeout = 3000;
+    x.onload = function () { if (x.status == 200) { try { stShow(JSON.parse(x.responseText)); } catch (e) {} } };
+    x.open("GET", "/status", true);
+    x.send();
+}
+/* every 2 s, and only while the page is visible: each request is a WiFi
+ * burst, and the radio adds noise to the MIC input the Spectrum talks on */
+setInterval(function () { if (!document.hidden) stPoll(); }, 2000);
+document.addEventListener("visibilitychange", function () { if (!document.hidden) stPoll(); });
+stPoll();
 </script>

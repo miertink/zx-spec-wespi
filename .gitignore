@@ -51,3 +51,15 @@ Module.symvers
 Mkfile.old
 dkms.conf
 /build/*
+# Local WiFi credentials (NVS image source) - never commit
+wifi.local.csv
+*.nvs.bin
+
+# Flash backups (binary, may contain WiFi credentials)
+backup/
+
+# Assembler listings (generated)
+*.lst
+
+# Spectrum code build script (the *.cmd rule above is for kernel builds)
+!main/asm/build.cmd

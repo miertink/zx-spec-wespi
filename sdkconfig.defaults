@@ -1,6 +1,14 @@
+# Settings this project needs; idf.py starts from these when sdkconfig is missing.
+# The ZX Spectrum options have their defaults in main/Kconfig.projbuild.
+
+# 4 MB flash: two 1 MB app slots (OTA over WiFi) and ~960 KB for the tapes
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
 CONFIG_PARTITION_TABLE_CUSTOM=y
-CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions_example.csv"
-CONFIG_PARTITION_TABLE_CUSTOM_APP_BIN_OFFSET=0x10000
-CONFIG_PARTITION_TABLE_FILENAME="partitions_example.csv"
-CONFIG_APP_OFFSET=0x10000
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions_zx_iot.csv"
+CONFIG_PARTITION_TABLE_FILENAME="partitions_zx_iot.csv"
+
+# Web server: browsers send long headers (cookies, language list)
 CONFIG_HTTPD_MAX_REQ_HDR_LEN=1024
+
+# 5 ms ticks: finer delays in the tape player and the menu protocol
+CONFIG_FREERTOS_HZ=200

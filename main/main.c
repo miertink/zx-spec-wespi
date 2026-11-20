@@ -1,216 +1,121 @@
-/* HTTP File Server Example
+/* ZX-Spec Wespi: tape server for the ZX Spectrum family on an ESP32.
+ *
+ * Start-up: log ring, NVS, status LED, tape player, MIC input, WiFi, SPIFFS,
+ * web server, then the menu (which starts the loader loop).
+ */
 
-   This example code is in the Public Domain (or CC0 licensed, at your option.)
-
-   Unless required by applicable law or agreed to in writing, this
-   software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-   CONDITIONS OF ANY KIND, either express or implied.
-*/
-
-#include <sys/param.h>
-#include <string.h>
+#include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/timers.h"
-
-#include "esp_wifi.h"
-#include "esp_event_loop.h"
 #include "esp_log.h"
-#include "esp_system.h"
 #include "esp_spiffs.h"
 #include "esp_ota_ops.h"
 #include "nvs_flash.h"
-#include "nvs.h"
 #include "driver/gpio.h"
 
-#include "zx_server.h"
-#include "signal_from_zx.h"
-#include "signal_to_zx.h"
+#include "tap_player.h"
+#include "mic_in.h"
+#include "zx_menu.h"
+#include "weblog.h"
 #include "wifi_sta.h"
 
-/* This example demonstrates how to create file server
- * using esp_http_server. This file has only startup code.
- * Look in file_server.c for the implementation */
+static const char *TAG = "zxsmain";
 
-/* The example uses simple WiFi configuration that you can set via
- * 'make menuconfig'.
- * If you'd rather not, just change the below entries to strings
- * with the config you want -
- * ie. #define EXAMPLE_WIFI_SSID "mywifissid"
-*/
-#define EXAMPLE_WIFI_SSID CONFIG_WIFI_SSID
-#define EXAMPLE_WIFI_PASS CONFIG_WIFI_PASSWORD
+esp_err_t start_file_server(const char *base_path);   /* file_server.c */
 
-static const char *TAG="zxiotmain";
-
-
-
-
-/* Function to initialize SPIFFS */
 static esp_err_t init_spiffs(void)
 {
-    ESP_LOGI(TAG, "Initializing SPIFFS");
-
     esp_vfs_spiffs_conf_t conf = {
-      .base_path = "/spiffs",
-      .partition_label = NULL,
-      .max_files = 5,   // This decides the maximum number of files that can be created on the storage
-      .format_if_mount_failed = true
+        .base_path = "/spiffs",
+        .partition_label = NULL,
+        .max_files = 5,
+        .format_if_mount_failed = true
     };
-
     esp_err_t ret = esp_vfs_spiffs_register(&conf);
     if (ret != ESP_OK) {
-        if (ret == ESP_FAIL) {
-            ESP_LOGE(TAG, "Failed to mount or format filesystem");
-        } else if (ret == ESP_ERR_NOT_FOUND) {
-            ESP_LOGE(TAG, "Failed to find SPIFFS partition");
-        } else {
-            ESP_LOGE(TAG, "Failed to initialize SPIFFS (%s)", esp_err_to_name(ret));
-        }
+        ESP_LOGE(TAG, "SPIFFS: cannot mount or format (%s)", esp_err_to_name(ret));
         return ESP_FAIL;
     }
-
     size_t total = 0, used = 0;
     ret = esp_spiffs_info(NULL, &total, &used);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to get SPIFFS partition information (%s)", esp_err_to_name(ret));
+        ESP_LOGE(TAG, "SPIFFS: no partition information (%s)", esp_err_to_name(ret));
         return ESP_FAIL;
     }
-
-    ESP_LOGI(TAG, "Partition size: total: %d, used: %d", total, used);
+    ESP_LOGI(TAG, "SPIFFS: %u of %u bytes used", (unsigned)used, (unsigned)total);
     return ESP_OK;
 }
 
-/* non volatile storage */
-void nvs_sys_init(){
-    // Initialize NVS
+/* NVS holds the WiFi credentials (wifi_sta.c) */
+static void nvs_sys_init(void)
+{
     esp_err_t err = nvs_flash_init();
     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        // NVS partition was truncated and needs to be erased
-        // Retry nvs_flash_init
-        ESP_ERROR_CHECK(nvs_flash_erase());
+        ESP_ERROR_CHECK(nvs_flash_erase());     /* truncated or old layout */
         err = nvs_flash_init();
     }
-    ESP_ERROR_CHECK( err );
-    printf("Opening Non-Volatile Storage (NVS) handle... ");
-    nvs_handle my_handle;
-    err = nvs_open("zxstorage", NVS_READWRITE, &my_handle);
-    if (err != ESP_OK) {
-        printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
-    } else {
-        printf("Done\n");
-        nvs_close(my_handle);
+    ESP_ERROR_CHECK(err);
+}
+
+/* Status LED (GPIO 2 on most DevKits, 21 on TTGO boards; both are driven):
+ * on during start-up, then fast blinking while the tape plays, otherwise a
+ * short flash every 5 s, doubled when WiFi is connected. */
+#define LED_GPIO_A      2
+#define LED_GPIO_B      21
+#define LED_CYCLE_MS    40
+
+static void led_set(bool on)
+{
+    gpio_set_level(LED_GPIO_A, on);
+    gpio_set_level(LED_GPIO_B, on);
+}
+
+static void led_init(void)
+{
+    const gpio_num_t pins[] = { LED_GPIO_A, LED_GPIO_B };
+    for (int i = 0; i < 2; i++) {
+        gpio_pad_select_gpio(pins[i]);
+        gpio_set_direction(pins[i], GPIO_MODE_OUTPUT);
     }
+    led_set(true);
 }
 
-
-/* currently support 2 blink LED, if more need to be supporred we could either make it mask or configurable */
-#define PIN_NUM_BLINK_LED 2 // 2 for JOY-IT, 21 for TTGO
-#define PIN_NUM_2ND_BLINK_LED 21 // 2 for JOY-IT, 21 for TTGO
-
-#define BLINK_LED_ON 1
-#define BLINK_LED_OFF 0
-
-/* Blink LED, TODO pin number is configurable in NVS, default 2
-*
-*   Show
-*       Light up during init
-*       Flash slowly during slow mode (2.5 sec 1-2pulses dep on WIFI)
-*       Flash fast during load/save 
-*       Flash every 5 sec when not connected (no changes in input, 2 pulses when wifi)
-*  
-*/
-
-static void bled_ini_single(uint8_t num)
+static void led_timer(TimerHandle_t t)
 {
-    if(num<GPIO_NUM_MAX){
-        gpio_pad_select_gpio(num);
-	    gpio_set_direction(num, GPIO_MODE_OUTPUT);
-	    gpio_set_level(num, BLINK_LED_ON);
-    }
-}
-
-
-static void bled_init()
-{
-    bled_ini_single(PIN_NUM_BLINK_LED);
-    bled_ini_single(PIN_NUM_2ND_BLINK_LED);
-}
-
-
-#define BLED_CYCLE_MS 40
-
-static void bled_timer_event( TimerHandle_t pxTimer )
-{
-    bool slowmode_detected=(zxsrv_get_zx_status()==ZXSG_SLOWM_50HZ ||  zxsrv_get_zx_status()==ZXSG_SLOWM_60HZ  ); 
-    bool led_on=false;
-    static uint16_t count=0; /* cycle count */
+    static uint16_t count;
+    bool on = false;
     ++count;
-    if (stzx_is_transfer_active()){
-        led_on = ((count&3)==1);
-    } else if (zxsrv_get_zx_status()==ZXSG_FILE_DATA){
-        led_on = ((count&3)>1);
+    if (tap_player_is_busy()) {
+        on = (count & 3) == 1;
     } else {
-        if (count==1) led_on = true; 
-        if (count==6) led_on = slowmode_detected; 
-        if (count==10) led_on = wifi_sta_is_connected(); 
-        if (count>2500/BLED_CYCLE_MS && slowmode_detected) count=0; 
-        if (count>5000/BLED_CYCLE_MS) count=0; 
+        on = count == 1 || (count == 6 && wifi_sta_is_connected());
+        if (count > 5000 / LED_CYCLE_MS) count = 0;
     }
-	if(PIN_NUM_BLINK_LED<GPIO_NUM_MAX)      gpio_set_level(PIN_NUM_BLINK_LED,     led_on ? BLINK_LED_ON : BLINK_LED_OFF);
-	if(PIN_NUM_2ND_BLINK_LED<GPIO_NUM_MAX)  gpio_set_level(PIN_NUM_2ND_BLINK_LED, led_on ? BLINK_LED_ON : BLINK_LED_OFF);
- }
- 
-
-static void bled_ini_done()
-{
-    xTimerHandle t;
-    t=xTimerCreate( "LED_Flasher",( BLED_CYCLE_MS / portTICK_PERIOD_MS), pdTRUE,0,bled_timer_event);
-    xTimerStart(t,0);
+    led_set(on);
 }
 
-
-/* Declare the function which starts the file server.
- * Implementation of this function is to be found in
- * file_server.c */
-esp_err_t start_file_server(const char *base_path);
-
-
-void app_main()
+void app_main(void)
 {
-    //QueueHandle_t msgqueue=NULL;
-    //msgqueue=xQueueCreate(10,sizeof(sfzx_evt_type_t));
+    weblog_init(48 * 1024);         /* first, so the whole boot log is kept */
 
-
-    ESP_LOGI(TAG, "Starting OTA check ...");
-
-
-    const esp_partition_t *configured = esp_ota_get_boot_partition();
     const esp_partition_t *running = esp_ota_get_running_partition();
-
-    if (configured != running) {
-        ESP_LOGW(TAG, "Configured OTA boot partition at offset 0x%08x, but running from offset 0x%08x",
-                 configured->address, running->address);
-        ESP_LOGW(TAG, "(This can happen if either the OTA boot data or preferred boot image become corrupted somehow.)");
+    if (esp_ota_get_boot_partition() != running) {
+        ESP_LOGW(TAG, "running from offset 0x%08x, not from the configured boot partition",
+                 running->address);
     }
-    ESP_LOGI(TAG, "Running partition type %d subtype %d (offset 0x%08x)",
-             running->type, running->subtype, running->address);
-
-
+    ESP_LOGI(TAG, "running partition at 0x%08x", running->address);
 
     nvs_sys_init();
-    bled_init();
-    zxsrv_init();
-    stzx_init();
-    sfzx_init();
-
-	wifi_sta_init(); /* needs nvs_sys_init */
-
-    /* Initialize file storage */
+    led_init();
+    tap_player_init();
+    /* MIC: Spectrum SAVEs, menu replies, load requests, reset detection.
+     * I2S0 in ADC mode leaves GPIO0 (BOOT button) alone. */
+    mic_in_init();
+    wifi_sta_init();                /* needs NVS */
     ESP_ERROR_CHECK(init_spiffs());
-
-    /* Start the file server */
     ESP_ERROR_CHECK(start_file_server("/spiffs"));
+    zx_menu_init();                 /* needs SPIFFS: builds the menu and loops it */
 
-    bled_ini_done();
-
+    TimerHandle_t t = xTimerCreate("led", pdMS_TO_TICKS(LED_CYCLE_MS), pdTRUE, NULL, led_timer);
+    xTimerStart(t, 0);
 }

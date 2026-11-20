@@ -1,16 +1,141 @@
-menu "Example Configuration"
+menu "WiFi"
 
     config WIFI_SSID
         string "WiFi SSID"
         default "myssid"
         help
-            SSID (network name) for the example to connect to.
+            Network name, copied to NVS on the first start only. The real
+            credentials are better written straight to NVS (see README) and
+            never kept in sdkconfig.
 
     config WIFI_PASSWORD
         string "WiFi Password"
         default "mypassword"
         help
-            WiFi password (WPA or WPA2) for the example to use.
-            Can be left blank if the network has no security set.
+            WiFi password (WPA or WPA2), copied to NVS on the first start
+            only. Blank for an open network.
+
+endmenu
+
+menu "ZX Spectrum tape interface"
+
+    config ZXS_TAPE_OUT_GPIO
+        int "Tape signal output GPIO (to the Spectrum EAR socket)"
+        range 0 33
+        default 22
+        help
+            GPIO that drives the Spectrum EAR input. 22 matches the original
+            ZX-Wespi hardware, so existing boards and cables can be reused.
+
+    config ZXS_CPU_CLOCK_HZ
+        int "Reference Z80 clock in Hz for tape timings"
+        range 3000000 4000000
+        default 3500000
+        help
+            Tape timings are defined in Z80 T-states, so the pulse lengths
+            sent out depend on the clock of the target machine.
+            3500000 = original ZX Spectrum 48K (UK). Some clones run faster
+            (the TK90X is believed to run at about 3.58 MHz). The ROM loader
+            tolerates a few percent, so the default works for most machines.
+
+    config ZXS_TAPE_BLOCK_PAUSE_MS
+        int "Pause between tape blocks (ms)"
+        range 200 5000
+        default 1000
+        help
+            Silence inserted after each block. 1000 ms is the .tap convention
+            and gives the ROM time to process a header before the data block.
+            Plays that know the ROM is listening (the menu loop, a file chosen
+            in the menu) use 300 ms after a header.
+
+    config ZXS_LOOP_FILE
+        string "File looped by the BOOT button (in /spiffs)"
+        default "_menu.tap"
+        help
+            Looped when the BOOT button is pressed. From power-up the file
+            menu (_menu.tap, rebuilt by the firmware) is always looped, so the
+            Spectrum loads it whenever LOAD "" is typed, with no trigger.
+
+    config ZXS_MENU_ON_RESET
+        bool "Loop the menu only from power-up and after a Spectrum reset"
+        default y
+        help
+            The menu loops from power-up until the Spectrum has loaded it
+            (its reply stops the loop). After a program is loaded the tape
+            stays silent; the loop starts again when a reset (or power-up)
+            of the Spectrum is seen on MIC: the line goes silent during the
+            RAM test. A game stopped at a "stop the tape" mark is dropped by
+            the reset. n = loop the menu again 3 s after every file
+            (ZXS_MENU_RELOOP). The BOOT button and the web buttons work in
+            both modes.
+
+    config ZXS_MENU_RESET_DELAY_MS
+        int "Delay before the menu loop after a Spectrum reset (ms)"
+        depends on ZXS_MENU_ON_RESET
+        range 0 30000
+        default 5000
+        help
+            Time for the Spectrum to start up and for LOAD "" to be typed
+            before the menu loop starts playing.
+
+    config ZXS_MENU_RELOOP
+        bool "Loop the menu again after the chosen file"
+        depends on !ZXS_MENU_ON_RESET
+        default y
+        help
+            When the file chosen in the menu has been played, wait 3 s and
+            loop the menu again, so a reset + LOAD "" brings the menu back.
+
+    config ZXS_TURBO
+        bool "Load .tap files on request, with a turbo loader"
+        default y
+        help
+            A .tap chosen in the menu (a BASIC program first, header + data
+            pairs) is served on request: every BASIC program is rewritten so
+            that each LOAD asks the ESP32 for its block through MIC; LOAD ""CODE
+            and LOAD ""SCREEN$ then load in turbo, other LOADs through the ROM,
+            exactly when the program needs them. Marked with > in the menu.
+
+    config ZXS_TURBO_SYM0
+        int "Turbo: pulse of symbol 0 (T-states)"
+        depends on ZXS_TURBO
+        range 600 900
+        default 666
+        help
+            Two bits per pulse: symbols 0..3 last SYM0 + n * 590 T-states
+            (10 samples of the ROM edge loop, SPACING in asm/turbo.asm). SYM0
+            gives the loader a count of ~2.5 samples; the routine measures the
+            pilot (as long as symbol 3) to place its thresholds.
+
+    config ZXS_SAVE_GROUP_S
+        int "SAVEs within this many seconds go into the same .tap"
+        range 0 120
+        default 10
+        help
+            A SAVE on the Spectrum is stored as <name>.tap on the server. A
+            program that saves its loader and then its code (or a SCREEN$)
+            produces several header+data pairs in a row; pairs that follow
+            within this time are appended to the first file, so the result
+            loads as one tape. 0 = one file per SAVE.
+
+    config ZXS_LOOP_PILOT_PULSES
+        int "Pilot length in the loop (pulses)"
+        range 1500 8063
+        default 3223
+        help
+            Pilot of every block while looping. The ROM loader, once it sees
+            an edge, waits about 1 s and then needs 256 pilot cycles (512
+            pulses, ~0.32 s). 3223 (~2 s, the standard data-block pilot)
+            leaves margin for a ROM that starts listening mid-pilot, and
+            keeps the loop cycle short (header ~2 s, not ~5 s).
+
+    config ZXS_BUTTON_GPIO
+        int "Loop start/stop button GPIO (-1 = none)"
+        range -1 39
+        default 0
+        help
+            Active-low push button that toggles the loop. 0 = the BOOT button
+            of ESP32 dev boards (only read after boot, so no conflict with
+            the strapping function).
 
 endmenu
