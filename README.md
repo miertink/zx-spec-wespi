@@ -35,6 +35,19 @@ tested on a **TK90X** (Brazilian Spectrum 48K clone).
   a tape left halfway.
 - **Firmware update over WiFi:** upload `zx_iot.bin` from the web page.
 
+## Install (no programming needed)
+
+Open **<https://miertink.github.io/zx-spec-wespi/>** in Chrome or Edge on a
+computer, connect the ESP32 by USB and click **Install** (instructions in
+Portuguese, Spanish and English). Then build the interface below, type
+`LOAD ""` on the Spectrum and choose your WiFi network with **W** in the menu.
+
+Without Chrome or Edge: download `zx-spec-wespi-<version>.bin` from the
+[releases](https://github.com/miertink/zx-spec-wespi/releases) and write it at
+address **0x0** with Espressif's Flash Download Tool or `esptool.py write_flash
+0x0 zx-spec-wespi-<version>.bin`. Installing clears the WiFi setting and the
+language; the tapes on the ESP32 stay.
+
 ## Hardware
 
 ### Parts
@@ -181,6 +194,12 @@ Later updates can also go over WiFi: upload `build/zx_iot.bin` on the web page,
 then reset the ESP32. A file that does not arrive whole, or is not a valid
 image, is refused and the running firmware stays.
 
+For a release: `python tools/make_release.py` (after `idf.py build`) merges
+bootloader, partition table and app into `docs/firmware/zx-spec-wespi.bin`
+(used by the installer page in `docs/`, published with GitHub Pages) and
+`dist/zx-spec-wespi-<version>.bin` (attached to the GitHub release), and
+writes `docs/manifest.json`. The version comes from `version.txt`.
+
 `sdkconfig.defaults` holds what the project needs (4 MB flash, partition table,
 web server header size); `idf.py` starts from it when `sdkconfig` is missing.
 
@@ -206,7 +225,8 @@ python %IDF_PATH%/components/esptool_py/esptool/esptool.py -p COM4 write_flash 0
 ```
 
 If NVS is empty, the firmware copies `WIFI_SSID` / `WIFI_PASSWORD` from
-`idf.py menuconfig` (WiFi menu; placeholders by default) to NVS once.
+`idf.py menuconfig` (WiFi menu) to NVS once. They are empty by default: the
+ESP32 then waits, offline, for a network chosen on the Spectrum.
 
 ### Options (`idf.py menuconfig` → ZX Spectrum tape interface)
 
@@ -244,6 +264,7 @@ If NVS is empty, the firmware copies `WIFI_SSID` / `WIFI_PASSWORD` from
 | `main/weblog.c` | Log kept in RAM, served at `/log` |
 | `tools/mkturbo.py` | Assembles `turbo.asm` into `turbo_bin.h` (with its relocation table) |
 | `tools/make_tap.py` | Builds and checks small `.tap` test files |
+| `tools/make_release.py`, `docs/` | Single-file firmware image, web installer page |
 | `project.md` | Design notes and history (Portuguese) |
 
 ## Known limits

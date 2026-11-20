@@ -1,0 +1,16 @@
+{
+  "name": "ZX-Spec Wespi",
+  "version": "1.0.1",
+  "new_install_prompt_erase": true,
+  "builds": [
+    {
+      "chipFamily": "ESP32",
+      "parts": [
+        {
+          "path": "firmware/zx-spec-wespi.bin",
+          "offset": 0
+        }
+      ]
+    }
+  ]
+}

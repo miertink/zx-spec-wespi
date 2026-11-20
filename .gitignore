@@ -63,3 +63,6 @@ backup/
 
 # Spectrum code build script (the *.cmd rule above is for kernel builds)
 !main/asm/build.cmd
+
+# Release images (attached to GitHub releases; docs/firmware/ holds the installer copy)
+dist/

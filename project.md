@@ -222,6 +222,12 @@ Idioma único (2026-11-20): a escolha (bandeiras pequenas no rodapé da página,
 - [x] WiFi pelo menu (versão sem módulos) — gravado; teste da troca de rede no TK90X pendente
 - [ ] Critério de aceite dos módulos no TK90X: SPACE mostra a info, W lista as redes e troca a rede, `0` volta, pedido perdido avisa
 
+**Instalação para leigos (2026-11-20, v1.0.1)**
+
+Página `docs/index.html` (GitHub Pages: `miertink.github.io/zx-spec-wespi`) em PT/ES/EN com o ESP Web Tools 10.4.0: Chrome/Edge, USB, botão Instalar. `tools/make_release.py` junta bootloader, partições, otadata e app num `.bin` único gravado em 0x0 (também anexado às releases, para o Flash Download Tool). Instalar apaga a NVS (rede, idioma), as fitas ficam. A rede padrão passou a ser vazia: sem rede, o ESP32 espera a escolha pela tecla W, sem tentar conectar a `myssid`. Testado: imagem única gravada em 0x0 numa NVS vazia, boot limpo, 10 fitas preservadas.
+
+- [ ] Testar no TK90X a escolha de rede (W) a partir de um ESP sem rede nenhuma
+
 **Pendências e roadmap**
 - [ ] Modo de carregamento por arquivo/micro: normal (ROM, sinal original), rápido (ROM, pilot curta) e turbo; escolha no menu do Spectrum (novo módulo) e padrão na página web, para micros onde o turbo não funcione bem (decisão de 2026-11-19)
 - [ ] Suporte 128K

@@ -66,7 +66,7 @@ const char *wifi_sta_ssid(void)
 
 static void retry_cb(void *arg)
 {
-    if (connected) return;
+    if (connected || !ssid_now[0]) return;
     ESP_LOGI(TAG, "reconnecting");
     ESP_ERROR_CHECK_WITHOUT_ABORT(esp_wifi_connect());
 }
@@ -87,7 +87,8 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
     case SYSTEM_EVENT_STA_START:
         quick_left = QUICK_RETRIES;
         connected = false;
-        ESP_ERROR_CHECK(esp_wifi_connect());
+        if (ssid_now[0]) ESP_ERROR_CHECK(esp_wifi_connect());
+        else ESP_LOGW(TAG, "no network set: choose one on the Spectrum (key W in the menu)");
         break;
     case SYSTEM_EVENT_STA_GOT_IP:
         snprintf(ip_text, sizeof(ip_text), IPSTR, IP2STR(&event->event_info.got_ip.ip_info.ip));
@@ -98,6 +99,7 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
     case SYSTEM_EVENT_STA_DISCONNECTED:
         ESP_LOGI(TAG, "disconnected");
         connected = false;
+        if (!ssid_now[0]) break;            /* no network set (scans also end here) */
         if (quick_left > 0) {
             quick_left--;
             ESP_ERROR_CHECK_WITHOUT_ABORT(esp_wifi_connect());
@@ -165,8 +167,10 @@ esp_err_t wifi_sta_set_network(const char *ssid, const char *pass)
     err = config_from_nvs();
     if (err != ESP_OK) return err;
     quick_left = QUICK_RETRIES;
-    /* the disconnect event connects again, now to the new network */
-    if (esp_wifi_disconnect() != ESP_OK) esp_wifi_connect();
+    /* connected: the disconnect event connects again, now to the new
+     * network. Not connected: connect now (if an attempt to the old one is
+     * still running, its failure event starts the new one) */
+    if (!connected || esp_wifi_disconnect() != ESP_OK) esp_wifi_connect();
     return ESP_OK;
 }
 

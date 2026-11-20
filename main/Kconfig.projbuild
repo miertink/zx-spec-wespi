@@ -2,15 +2,16 @@ menu "WiFi"
 
     config WIFI_SSID
         string "WiFi SSID"
-        default "myssid"
+        default ""
         help
-            Network name, copied to NVS on the first start only. The real
-            credentials are better written straight to NVS (see README) and
-            never kept in sdkconfig.
+            Network name, copied to NVS on the first start only. Empty (the
+            default): no network until one is chosen on the Spectrum (key W
+            in the menu) or written to NVS (see README). Real credentials
+            are never kept in sdkconfig.
 
     config WIFI_PASSWORD
         string "WiFi Password"
-        default "mypassword"
+        default ""
         help
             WiFi password (WPA or WPA2), copied to NVS on the first start
             only. Blank for an open network.

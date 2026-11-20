@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ZX-Spec Wespi – installer</title>
+<meta name="description" content="Install ZX-Spec Wespi on an ESP32 from the browser: WiFi tape server for the ZX Spectrum family.">
+<script type="module" src="https://unpkg.com/esp-web-tools@10.4.0/dist/web/install-button.js?module"></script>
+<style>
+:root{--bg:#0d0e12;--card:#171920;--card2:#1f222b;--line:#2b2f3b;--fg:#ececf1;--dim:#9497a6;
+--red:#e4002b;--yel:#ffcd00;--grn:#00a651;--cya:#00a9e0;--r:12px}
+*{box-sizing:border-box}
+html{background:var(--bg)}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+a{color:var(--cya)}
+.wrap{max-width:760px;margin:0 auto;padding:20px 16px 40px}
+header{position:relative;display:flex;align-items:center;justify-content:center;padding:22px 16px 28px;
+background:var(--card);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+header svg{width:100%;max-width:300px;height:auto;display:block}
+.stripes{position:absolute;left:0;right:0;bottom:0;height:5px;
+background:linear-gradient(90deg,var(--red) 0 25%,var(--yel) 25% 50%,var(--grn) 50% 75%,var(--cya) 75%)}
+.flags{position:absolute;top:10px;right:12px;display:flex;gap:8px}
+.flags a{display:block;line-height:0;opacity:.35}.flags a.on{opacity:1}.flags a:hover{opacity:.8}
+.flags svg{width:24px;height:16px;border-radius:2px}
+h1{font-size:26px;margin:24px 0 6px}
+.lead{color:var(--dim);margin:0 0 8px}
+.card{margin-top:16px;padding:6px 20px 14px;background:var(--card);border:1px solid var(--line);border-radius:var(--r)}
+.card h2{font-size:14px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin:14px 0 6px}
+li{margin:6px 0}
+code{background:var(--card2);padding:1px 6px;border-radius:5px}
+.install{margin:14px 0 8px 0;padding:16px;background:var(--card2);border:1px dashed var(--line);border-radius:var(--r);text-align:center}
+.btn{font:inherit;font-size:18px;font-weight:600;color:#fff;background:var(--grn);border:0;border-radius:10px;padding:12px 34px;cursor:pointer}
+.btn:hover{filter:brightness(1.1)}
+.warn{color:var(--yel)}
+footer{margin-top:22px;color:var(--dim);font-size:13px;text-align:center}
+main{display:none}main.on{display:block}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header><svg viewBox="0 0 316 201" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ZX-Spec Wespi"><defs><clipPath id="lbl"><rect x="18" y="12" width="280" height="124" rx="8"/></clipPath><clipPath id="win"><rect x="62" y="66" width="192" height="50" rx="25"/></clipPath></defs><rect x="2" y="2" width="312" height="197" rx="12" fill="#1f222b" stroke="#ececf1" stroke-width="3"/><circle cx="11" cy="11" r="3.5" fill="#2b2f3b"/><circle cx="305" cy="11" r="3.5" fill="#2b2f3b"/><circle cx="11" cy="190" r="3.5" fill="#2b2f3b"/><circle cx="305" cy="190" r="3.5" fill="#2b2f3b"/><rect x="18" y="12" width="280" height="124" rx="8" fill="#0d0e12"/><g clip-path="url(#lbl)"><polygon points="48,79 292,79 286,85 42,85" fill="#e4002b"/><polygon points="42,85 286,85 280,91 36,91" fill="#ffcd00"/><polygon points="36,91 280,91 274,97 30,97" fill="#00a651"/><polygon points="30,97 274,97 268,103 24,103" fill="#00a9e0"/></g><g font-family="'Arial Black','Helvetica Neue',Arial,sans-serif" font-weight="900" font-style="italic" font-size="30"><text x="158" y="50" text-anchor="middle" textLength="200" lengthAdjust="spacingAndGlyphs"><tspan fill="#ececf1">ZX-Spec </tspan><tspan fill="#ffcd00">Wespi</tspan></text></g><rect x="62" y="66" width="192" height="50" rx="25" fill="#171920"/><g clip-path="url(#win)"><circle cx="91" cy="91" r="22" fill="#2a2e3a"/><circle cx="225" cy="91" r="17" fill="#2a2e3a"/></g><g class="reel"><circle cx="91" cy="91" r="13" fill="none" stroke="#ececf1" stroke-width="3"/><circle cx="91" cy="91" r="4.5" fill="#ececf1"/><rect x="89.5" y="79" width="3" height="7" rx="1" fill="#ececf1" transform="rotate(0 91 91)"/><rect x="89.5" y="79" width="3" height="7" rx="1" fill="#ececf1" transform="rotate(120 91 91)"/><rect x="89.5" y="79" width="3" height="7" rx="1" fill="#ececf1" transform="rotate(240 91 91)"/></g><g class="reel"><circle cx="225" cy="91" r="13" fill="none" stroke="#ececf1" stroke-width="3"/><circle cx="225" cy="91" r="4.5" fill="#ececf1"/><rect x="223.5" y="79" width="3" height="7" rx="1" fill="#ececf1" transform="rotate(0 225 91)"/><rect x="223.5" y="79" width="3" height="7" rx="1" fill="#ececf1" transform="rotate(120 225 91)"/><rect x="223.5" y="79" width="3" height="7" rx="1" fill="#ececf1" transform="rotate(240 225 91)"/></g><rect x="62" y="66" width="192" height="50" rx="25" fill="none" stroke="#9497a6" stroke-width="2"/><path d="M48 199 L68 163 L248 163 L268 199" fill="#171920" stroke="#2b2f3b" stroke-width="2"/><circle cx="98" cy="185" r="5" fill="#0d0e12"/><circle cx="218" cy="185" r="5" fill="#0d0e12"/><g fill="none" stroke="#00a9e0" stroke-width="3.5" stroke-linecap="round"><path d="M150 183 a11 11 0 0 1 16 0"/><path d="M143 176 a21 21 0 0 1 30 0"/></g><circle cx="158" cy="189" r="3.2" fill="#00a9e0"/></svg><nav class="flags"><a href="#pt" data-l="pt" title="Português"><svg viewBox="0 0 20 14"><rect width="20" height="14" fill="#009c3b"/><polygon points="10,1.6 18.4,7 10,12.4 1.6,7" fill="#ffdf00"/><circle cx="10" cy="7" r="3.3" fill="#002776"/></svg></a><a href="#es" data-l="es" title="Español"><svg viewBox="0 0 20 14"><rect width="20" height="14" fill="#c60b1e"/><rect y="3.5" width="20" height="7" fill="#ffc400"/></svg></a><a href="#en" data-l="en" title="English"><svg viewBox="0 0 20 14"><rect width="20" height="14" fill="#fff"/><path d="M0 0h20v1.08H0zM0 2.15h20v1.08H0zM0 4.31h20v1.08H0zM0 6.46h20v1.08H0zM0 8.62h20v1.08H0zM0 10.77h20v1.08H0zM0 12.92h20V14H0z" fill="#b22234"/><rect width="9" height="7.54" fill="#3c3b6e"/></svg></a></nav><div class="stripes"></div></header>
+<main lang="pt" class="lang-pt">
+<h1>Instalar o ZX-Spec Wespi</h1>
+<p class="lead">Servidor de fitas WiFi para a família ZX Spectrum, num ESP32. Grave o programa no seu ESP32 direto pelo navegador: sem instalar nada, sem programar.</p>
+<section class="card"><h2>Você vai precisar de</h2><ul><li>Uma placa ESP32 DevKit (ESP32-WROOM, 4 MB de flash).</li><li>Um cabo USB <b>de dados</b> (alguns cabos só carregam: se a porta não aparecer, troque o cabo).</li><li>Um computador com <b>Chrome</b> ou <b>Edge</b> (Windows, Mac ou Linux). Firefox e Safari não servem para este método.</li></ul></section>
+<section class="card"><h2>Passo a passo</h2><ol><li>Ligue o ESP32 no computador pelo cabo USB.</li><li>Clique em <b>Instalar</b> abaixo e escolha a porta do ESP32 na lista (aparece como <i>CP210x</i>, <i>CH340</i> ou <i>USB Serial</i>).</li><li>Confirme e espere uns 2 minutos, até a mensagem de instalação concluída. Na primeira vez, aceite <b>apagar o dispositivo</b>.</li></ol>
+<div class="install"><esp-web-install-button manifest="manifest.json">
+<button slot="activate" class="btn">&#9654; Instalar</button>
+<span slot="unsupported" class="warn">Este navegador não grava no ESP32. Use o Chrome ou o Edge num computador, ou veja a alternativa abaixo.</span>
+<span slot="not-allowed" class="warn">A instalação só funciona numa página https.</span>
+</esp-web-install-button></div>
+<ol start="4"><li>Monte a interface (dois resistores, um capacitor e dois cabos de áudio): veja o <a href="https://github.com/miertink/zx-spec-wespi#hardware">esquema</a>.</li><li>Ligue o Spectrum e digite <code>LOAD ""</code>. Quando o menu aparecer, tecle <b>W</b>, escolha a sua rede WiFi e digite a senha.</li><li>Tecle <b>SPACE</b> no menu para ver o endereço web do ESP32. Abra-o no navegador e envie as suas fitas (.tap, .tzx, .pzx, .csw).</li></ol></section>
+<section class="card"><h2>Se algo não funcionar</h2><ul><li><b>A porta não aparece:</b> instale o driver da sua placa, <a href="https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers">CP210x</a> ou <a href="https://www.wch-ic.com/downloads/CH341SER_EXE.html">CH340</a> (o nome está no chip perto do conector USB), e troque o cabo se precisar.</li><li><b>Não conecta:</b> segure o botão <b>BOOT</b> da placa, clique em Instalar e solte o botão quando a gravação começar.</li><li><b>Reinstalar ou atualizar:</b> as fitas ficam no ESP32, mas a rede WiFi e o idioma voltam ao padrão: escolha a rede de novo com <b>W</b> no menu.</li></ul></section>
+<section class="card"><h2>Sem Chrome ou Edge</h2><p>Baixe o arquivo <a href="firmware/zx-spec-wespi.bin">zx-spec-wespi.bin</a> (também nas <a href="https://github.com/miertink/zx-spec-wespi/releases">versões</a>) e grave-o no endereço <b>0x0</b> com o <a href="https://www.espressif.com/en/support/download/other-tools">Flash Download Tool</a> da Espressif (Windows): um único arquivo.</p></section>
+<footer>Projeto e documentação: <a href="https://github.com/miertink/zx-spec-wespi">github.com/miertink/zx-spec-wespi</a> · baseado no ZX-Wespi (ZX-TEAM) · GPL-3.0</footer>
+</main>
+<main lang="es" class="lang-es">
+<h1>Instalar ZX-Spec Wespi</h1>
+<p class="lead">Servidor de cintas WiFi para la familia ZX Spectrum, en un ESP32. Graba el programa en tu ESP32 directamente desde el navegador: sin instalar nada, sin programar.</p>
+<section class="card"><h2>Necesitarás</h2><ul><li>Una placa ESP32 DevKit (ESP32-WROOM, 4 MB de flash).</li><li>Un cable USB <b>de datos</b> (algunos cables solo cargan: si el puerto no aparece, cambia el cable).</li><li>Un ordenador con <b>Chrome</b> o <b>Edge</b> (Windows, Mac o Linux). Firefox y Safari no sirven para este método.</li></ul></section>
+<section class="card"><h2>Paso a paso</h2><ol><li>Conecta el ESP32 al ordenador con el cable USB.</li><li>Pulsa <b>Instalar</b> abajo y elige el puerto del ESP32 en la lista (aparece como <i>CP210x</i>, <i>CH340</i> o <i>USB Serial</i>).</li><li>Confirma y espera unos 2 minutos, hasta el mensaje de instalación completada. La primera vez, acepta <b>borrar el dispositivo</b>.</li></ol>
+<div class="install"><esp-web-install-button manifest="manifest.json">
+<button slot="activate" class="btn">&#9654; Instalar</button>
+<span slot="unsupported" class="warn">Este navegador no puede grabar el ESP32. Usa Chrome o Edge en un ordenador, o mira la alternativa más abajo.</span>
+<span slot="not-allowed" class="warn">La instalación solo funciona en una página https.</span>
+</esp-web-install-button></div>
+<ol start="4"><li>Monta la interfaz (dos resistencias, un condensador y dos cables de audio): mira el <a href="https://github.com/miertink/zx-spec-wespi#hardware">esquema</a>.</li><li>Enciende el Spectrum y escribe <code>LOAD ""</code>. Cuando aparezca el menú, pulsa <b>W</b>, elige tu red WiFi y escribe la clave.</li><li>Pulsa <b>SPACE</b> en el menú para ver la dirección web del ESP32. Ábrela en el navegador y sube tus cintas (.tap, .tzx, .pzx, .csw).</li></ol></section>
+<section class="card"><h2>Si algo no funciona</h2><ul><li><b>El puerto no aparece:</b> instala el driver de tu placa, <a href="https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers">CP210x</a> o <a href="https://www.wch-ic.com/downloads/CH341SER_EXE.html">CH340</a> (el nombre está en el chip junto al conector USB), y cambia el cable si hace falta.</li><li><b>No conecta:</b> mantén pulsado el botón <b>BOOT</b> de la placa, pulsa Instalar y suelta el botón cuando empiece la grabación.</li><li><b>Reinstalar o actualizar:</b> las cintas se quedan en el ESP32, pero la red WiFi y el idioma vuelven al valor inicial: elige la red otra vez con <b>W</b> en el menú.</li></ul></section>
+<section class="card"><h2>Sin Chrome ni Edge</h2><p>Descarga el archivo <a href="firmware/zx-spec-wespi.bin">zx-spec-wespi.bin</a> (también en las <a href="https://github.com/miertink/zx-spec-wespi/releases">versiones</a>) y grábalo en la dirección <b>0x0</b> con el <a href="https://www.espressif.com/en/support/download/other-tools">Flash Download Tool</a> de Espressif (Windows): un solo archivo.</p></section>
+<footer>Proyecto y documentación: <a href="https://github.com/miertink/zx-spec-wespi">github.com/miertink/zx-spec-wespi</a> · basado en ZX-Wespi (ZX-TEAM) · GPL-3.0</footer>
+</main>
+<main lang="en" class="lang-en">
+<h1>Install ZX-Spec Wespi</h1>
+<p class="lead">WiFi tape server for the ZX Spectrum family, on an ESP32. Put the program on your ESP32 straight from the browser: nothing to install, no programming.</p>
+<section class="card"><h2>You will need</h2><ul><li>An ESP32 DevKit board (ESP32-WROOM, 4 MB flash).</li><li>A USB <b>data</b> cable (some cables only charge: if the port does not show, try another cable).</li><li>A computer with <b>Chrome</b> or <b>Edge</b> (Windows, Mac or Linux). Firefox and Safari cannot do this.</li></ul></section>
+<section class="card"><h2>Step by step</h2><ol><li>Connect the ESP32 to the computer with the USB cable.</li><li>Click <b>Install</b> below and pick the ESP32's port in the list (shown as <i>CP210x</i>, <i>CH340</i> or <i>USB Serial</i>).</li><li>Confirm and wait about 2 minutes, until it says the installation is complete. The first time, accept to <b>erase the device</b>.</li></ol>
+<div class="install"><esp-web-install-button manifest="manifest.json">
+<button slot="activate" class="btn">&#9654; Install</button>
+<span slot="unsupported" class="warn">This browser cannot program the ESP32. Use Chrome or Edge on a computer, or see the alternative below.</span>
+<span slot="not-allowed" class="warn">Installing only works from an https page.</span>
+</esp-web-install-button></div>
+<ol start="4"><li>Build the interface (two resistors, one capacitor and two audio cables): see the <a href="https://github.com/miertink/zx-spec-wespi#hardware">schematic</a>.</li><li>Turn the Spectrum on and type <code>LOAD ""</code>. When the menu shows, press <b>W</b>, pick your WiFi network and type its password.</li><li>Press <b>SPACE</b> in the menu to see the ESP32's web address. Open it in a browser and upload your tapes (.tap, .tzx, .pzx, .csw).</li></ol></section>
+<section class="card"><h2>If something does not work</h2><ul><li><b>No port shows:</b> install your board's driver, <a href="https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers">CP210x</a> or <a href="https://www.wch-ic.com/downloads/CH341SER_EXE.html">CH340</a> (the name is on the chip next to the USB connector), and try another cable if needed.</li><li><b>It does not connect:</b> hold the board's <b>BOOT</b> button, click Install and let go once writing starts.</li><li><b>Installing again or updating:</b> the tapes stay on the ESP32, but the WiFi network and the language go back to the defaults: choose the network again with <b>W</b> in the menu.</li></ul></section>
+<section class="card"><h2>Without Chrome or Edge</h2><p>Download <a href="firmware/zx-spec-wespi.bin">zx-spec-wespi.bin</a> (also under <a href="https://github.com/miertink/zx-spec-wespi/releases">releases</a>) and write it at address <b>0x0</b> with Espressif's <a href="https://www.espressif.com/en/support/download/other-tools">Flash Download Tool</a> (Windows): a single file.</p></section>
+<footer>Project and documentation: <a href="https://github.com/miertink/zx-spec-wespi">github.com/miertink/zx-spec-wespi</a> · based on ZX-Wespi (ZX-TEAM) · GPL-3.0</footer>
+</main>
+</div>
+<script>
+/* language: the link (#pt, #es, #en), else the browser's, else English */
+function setLang(l) {
+    if (!/^(pt|es|en)$/.test(l)) l = "en";
+    document.documentElement.lang = l;
+    document.querySelectorAll("main").forEach(function (m) { m.classList.toggle("on", m.lang == l); });
+    document.querySelectorAll(".flags a").forEach(function (a) { a.classList.toggle("on", a.dataset.l == l); });
+}
+var h = location.hash.slice(1), b = (navigator.language || "en").slice(0, 2).toLowerCase();
+setLang(/^(pt|es|en)$/.test(h) ? h : b);
+window.addEventListener("hashchange", function () { setLang(location.hash.slice(1)); });
+</script>
+</body>
+</html>
