@@ -1,5 +1,9 @@
 # ZX-Spec Wespi
 
+🇧🇷 [Ler em português](https://github-com.translate.goog/miertink/zx-spec-wespi?_x_tr_sl=en&_x_tr_tl=pt&_x_tr_hl=pt-BR) ·
+🇪🇸 [Leer en español](https://github-com.translate.goog/miertink/zx-spec-wespi?_x_tr_sl=en&_x_tr_tl=es&_x_tr_hl=es)
+(Google Translate) · Installer in PT / ES / EN: **<https://miertink.github.io/zx-spec-wespi/>**
+
 A WiFi tape server for the ZX Spectrum family, built on an ESP32 and a handful of
 passive parts. The ESP32 plays tape files into the computer's **EAR** socket and
 listens to its **MIC** socket, so the Spectrum loads from and saves to a file
