@@ -461,11 +461,20 @@ void zx_menu_rebuild_later(void)
     if (!rebuild_at) rebuild_at = 1;
 }
 
+/* Starts the menu loop. Under the lock: the loop never starts while the menu
+ * file is being rewritten (the rewrite stops it first, see below). */
+static void menu_loop(void)
+{
+    xSemaphoreTake(lock, portMAX_DELAY);
+    tap_player_loop(ZX_MENU_PATH);
+    xSemaphoreGive(lock);
+}
+
 void zx_menu_rebuild(void)
 {
     xSemaphoreTake(lock, portMAX_DELAY);
     /* The loop reopens the file every round: stop it while rewriting. */
-    bool restart = tap_player_is_looping() && strcmp(tap_player_current(), ZX_MENU_FILE) == 0;
+    bool restart = tap_player_is_busy() && strcmp(tap_player_current(), ZX_MENU_FILE) == 0;
     if (restart) {
         tap_player_stop();
         for (int i = 0; i < 100 && tap_player_is_busy(); i++) vTaskDelay(pdMS_TO_TICKS(20));
@@ -477,8 +486,8 @@ void zx_menu_rebuild(void)
         gen++;
     }
     bool ok = write_menu();
-    xSemaphoreGive(lock);
     if (restart && ok) tap_player_loop(ZX_MENU_PATH);
+    xSemaphoreGive(lock);
 }
 
 void zx_menu_on_block(const uint8_t *block, size_t len, int64_t start_us)
@@ -512,7 +521,7 @@ void zx_menu_on_block(const uint8_t *block, size_t len, int64_t start_us)
 }
 
 /* Spectrum reset seen on MIC (MIC task): handled by the menu task */
-static void on_reset(void)
+static void __attribute__((unused)) on_reset(void)
 {
     reply_t r = { .cmd = 'R' };
     xQueueSend(reply_q, &r, 0);
@@ -541,7 +550,7 @@ static void zx_menu_task(void *arg)
                 loop_due = false;
                 if (!tap_player_is_busy()) {
                     ESP_LOGI(TAG, "Spectrum reset %d ms ago: menu loop", CONFIG_ZXS_MENU_RESET_DELAY_MS);
-                    tap_player_loop(ZX_MENU_PATH);  /* also drops a multi-load position */
+                    menu_loop();  /* also drops a multi-load position */
                 }
             }
             if (rebuild_at && (int32_t)(xTaskGetTickCount() - rebuild_at) >= 0) {
@@ -557,7 +566,7 @@ static void zx_menu_task(void *arg)
                 menu_open = false;
                 if (!ON_RESET && !tap_player_is_busy()) {
                     ESP_LOGI(TAG, "no choice in %d s: menu loop again", MENU_IDLE_MS / 1000);
-                    tap_player_loop(ZX_MENU_PATH);
+                    menu_loop();
                 }
             }
             continue;
@@ -625,7 +634,7 @@ static void zx_menu_task(void *arg)
             }
             /* the menu said "press a key": its LOAD "" takes the menu, in the
              * new language */
-            if (!tap_player_is_busy()) tap_player_loop(ZX_MENU_PATH);
+            if (!tap_player_is_busy()) menu_loop();
             continue;
         }
 
@@ -650,7 +659,7 @@ static void zx_menu_task(void *arg)
                 vTaskDelay(pdMS_TO_TICKS(500));
                 for (int i = 0; i < 100 && tap_player_is_busy(); i++) vTaskDelay(pdMS_TO_TICKS(100));
             }
-            if (!tap_player_is_busy()) tap_player_loop(ZX_MENU_PATH);
+            if (!tap_player_is_busy()) menu_loop();
             continue;
         }
 
@@ -669,7 +678,7 @@ static void zx_menu_task(void *arg)
         xSemaphoreGive(lock);
         if (!valid) {
             /* reload the menu */
-            if (!tap_player_is_busy()) tap_player_loop(ZX_MENU_PATH);
+            if (!tap_player_is_busy()) menu_loop();
             continue;
         }
 
@@ -693,7 +702,7 @@ static void zx_menu_task(void *arg)
             continue;
         }
         vTaskDelay(pdMS_TO_TICKS(MENU_RELOOP_MS));
-        if (!tap_player_is_busy()) tap_player_loop(ZX_MENU_PATH);
+        if (!tap_player_is_busy()) menu_loop();
 #endif
     }
 }
@@ -716,7 +725,9 @@ void zx_menu_init(void)
     scan_files();
     list_hash = names_hash();
     bool ok = write_menu();
-    xSemaphoreGive(lock);
-    if (ON_RESET) mic_in_set_reset_cb(on_reset);
     if (ok) tap_player_loop(ZX_MENU_PATH);
+    xSemaphoreGive(lock);
+#ifdef CONFIG_ZXS_MENU_RESET_DETECT
+    mic_in_set_reset_cb(on_reset);
+#endif
 }

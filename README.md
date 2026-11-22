@@ -20,8 +20,8 @@ tested on a **TK90X** (Brazilian Spectrum 48K clone).
 
 - **Tape formats:** `.tap`, `.tzx` (v1.20: all signal blocks, loops, jumps, calls,
   "stop the tape" with resume), `.pzx`, `.csw` (RLE and Z-RLE).
-- **Menu on the Spectrum:** after power-up or a reset the ESP32 loops a small
-  loader menu; type `LOAD ""`, pick a file with the cursor keys or its letter.
+- **Menu on the Spectrum:** from power-up the ESP32 loops a small loader
+  menu; type `LOAD ""`, pick a file with the cursor keys or its letter.
   The choice goes back to the ESP32 through MIC.
 - **WiFi set up from the Spectrum:** the menu lists the networks in reach; pick
   one and type its password. No PC needed, not even the first time.
@@ -56,8 +56,8 @@ language; the tapes on the ESP32 stay.
 
 ## Hardware
 
-An ESP32 DevKit (ESP32-WROOM, 4 MB flash), three resistors (1 kΩ, 22 kΩ,
-100 kΩ), a 100 nF capacitor and two mono 3.5 mm audio cables; for the assembly
+An ESP32 DevKit (ESP32-WROOM, 4 MB flash), four resistors (two 1 kΩ, one
+22 kΩ, one 100 kΩ), a 100 nF capacitor and two mono 3.5 mm audio cables; for the assembly
 below, a mini breadboard and 4 female-to-male jumper wires. No soldering.
 
 ![Assembly: ESP32, breadboard and the EAR and MIC cables](docs/img/wiring.svg)
@@ -70,13 +70,16 @@ are on the [installer page](https://miertink.github.io/zx-spec-wespi/#hw-pt).
 
 ![Schematic](docs/img/schematic.svg)
 
-- **EAR:** GPIO22 drives the EAR input directly with 3.3 V logic (RMT pulses,
-  0.1 µs resolution).
+- **EAR:** GPIO22 drives the EAR input through 1 kΩ with 3.3 V logic (RMT
+  pulses, 0.1 µs resolution). On the Spectrum the EAR socket shares its ULA pin
+  with the beeper, so the game sound reaches the TV through this line too: the
+  1 kΩ makes the loading tones softer on the TV, and between loads GPIO22 is
+  released (high impedance) so it does not mute the game sound.
 - **MIC:** the Spectrum's MIC output is weak (about 50 mV on the TK90X) and
   swings around 0 V, where the ADC does not respond. The 100 nF capacitor
   couples it to the 100k / 22k divider, which holds GPIO36 at about 0.6 V, the
   middle of the ADC range at 0 dB (0–1 V); the high-pass corner is ~85 Hz,
-  well below the tape tones. The 1 kΩ protects both sides. GPIO36 is on ADC1,
+  well below the tape tones. The 1 kΩ on MIC protects both sides. GPIO36 is on ADC1,
   which keeps working with WiFi on.
 - The ESP32 is powered from its own USB port; only the grounds are shared with
   the Spectrum. The BOOT button (GPIO0) starts / stops the menu loop; the
@@ -89,15 +92,17 @@ are on the [installer page](https://miertink.github.io/zx-spec-wespi/#hw-pt).
    loop repeats every ~15 s and the ROM waits for its next header).
 3. If the ESP32 has no network yet, press **W** in the menu and choose one (see
    below). The web address then shows under **SPACE**, and on the menu's
-   second row after a reset.
+   second row the next time it loads.
 4. Upload tapes on the web page, `http://<ip>/`.
 5. Pick a file in the menu. Files marked `>` load on request (turbo); the others
    are played as they are, with short pilots where that is safe.
 6. To save, use `SAVE "name"` as with a cassette recorder: the file appears on
    the web page as `name.tap`.
 
-After a program has loaded, the tape stays silent. Reset the Spectrum and type
-`LOAD ""` to get the menu again (the ESP32 notices the reset on MIC).
+After a program has loaded, the tape stays silent and the EAR line is released,
+so the program's sound comes through untouched. For the menu again, reset the
+Spectrum, press the ESP32's **BOOT** button (or **Loop** next to `_menu.tap` on
+the web page) and type `LOAD ""`.
 
 ### Menu keys
 
@@ -136,7 +141,7 @@ its Portuguese and Spanish texts are written without them.
    character is available: `[ ] { } ~ | \` with EXTEND then SYMBOL SHIFT + key,
    as usual; a `` ` `` is typed as `£` (SYMBOL SHIFT + X), which has its code.
 4. The Spectrum sends the choice through MIC; the ESP32 stores it and connects.
-   The new address shows in the menu after a reset.
+   The new address shows under **SPACE**.
 
 The password is kept in the ESP32's NVS only; it never appears in the log or on
 the web page. A wrong password leaves the ESP32 offline, retrying every 15 s:
@@ -152,7 +157,7 @@ them as below.
 - *New menu: press a key, it loads*: the files changed since this menu loaded;
   the key loads the new one.
 - The Spectrum keeps waiting for the tape (no border stripes): press BREAK, then
-  `RUN` for the menu again, or reset the Spectrum.
+  `RUN` for the menu again, or reset the Spectrum and press BOOT.
 
 ## Building
 
@@ -216,8 +221,9 @@ ESP32 then waits, offline, for a network chosen on the Spectrum.
 | `ZXS_TAPE_OUT_GPIO` | 22 | EAR output pin |
 | `ZXS_CPU_CLOCK_HZ` | 3500000 | Z80 clock the tape timings refer to |
 | `ZXS_TAPE_BLOCK_PAUSE_MS` | 1000 | Pause between blocks of a file played from the web |
-| `ZXS_MENU_ON_RESET` | y | Loop the menu after power-up / reset, not after a load |
-| `ZXS_MENU_RESET_DELAY_MS` | 5000 | Time to type `LOAD ""` before the loop starts |
+| `ZXS_MENU_ON_RESET` | y | Loop the menu from power-up, not after a load |
+| `ZXS_MENU_RESET_DETECT` | n | Also loop it when a Spectrum reset is seen on MIC (games can trigger it) |
+| `ZXS_MENU_RESET_DELAY_MS` | 5000 | With the above: time to type `LOAD ""` before the loop starts |
 | `ZXS_MENU_RELOOP` | y | (when `ZXS_MENU_ON_RESET` is off) loop the menu 3 s after each file |
 | `ZXS_TURBO` | y | Load `.tap` files on request with the turbo loader |
 | `ZXS_TURBO_SYM0` | 666 | Turbo: length of the shortest pulse (T-states) |

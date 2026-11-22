@@ -81,10 +81,12 @@ static uint16_t buf[MIC_READ_SAMPLES];
  * LOAD, BREAK, games). It stops only while the machine is off or in the
  * RAM test after a reset. So "silent for RS_SILENT_US, then active again for
  * RS_ACTIVE_US" = the Spectrum was reset or powered up. (Measured on the
- * TK90X, 2026-11-18. LOAD "" itself leaves no mark on MIC there.) */
+ * TK90X, 2026-11-18. LOAD "" itself leaves no mark on MIC there.)
+ * Resets measured on the TK90X were silent for 705 ms or more; programs
+ * (Pssst) go quiet for 200-600 ms while they run, hence the 650 ms. */
 #define RS_WINDOW_US      100000             /* background measured per 100 ms */
 #define RS_SILENT_EDGES   3                  /* fewer edges in a window: silent */
-#define RS_SILENT_US      200000
+#define RS_SILENT_US      650000
 #define RS_ACTIVE_US      300000
 #define RS_TAPE_GUARD_US  500000             /* our EAR leaks into MIC: idle this long first */
 static mic_in_reset_cb_t reset_cb;

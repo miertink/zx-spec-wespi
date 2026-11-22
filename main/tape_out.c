@@ -21,6 +21,11 @@
  * Ring size: 2048 entries = 4 KB, i.e. ~0.5 s of a standard data block (more
  * in a pilot, less in a fast turbo loader) ahead of the output. The player
  * task only has to keep up on average.
+ *
+ * Release: on the Spectrum the EAR socket shares the ULA pin that also
+ * carries the beeper sound, so a pin held at a fixed level loads the sound of
+ * the running program. After RELEASE_US with nothing played the pin goes high
+ * impedance; the next stream takes it back (low first, then the stream).
  */
 
 #include <string.h>
@@ -29,6 +34,8 @@
 #include "esp_attr.h"
 #include "esp_log.h"
 #include "esp_timer.h"
+#include "freertos/semphr.h"
+#include "driver/gpio.h"
 #include "driver/rmt.h"
 
 #include "tape_out.h"
@@ -71,6 +78,45 @@ static volatile bool abort_req;
 static volatile bool sending;
 static volatile int64_t last_end_us = -1;
 static const uint8_t dummy_src = 0;  /* the driver wants a source buffer; ours is the ring */
+
+#define TAPE_GPIO            ((gpio_num_t)CONFIG_ZXS_TAPE_OUT_GPIO)
+#define RELEASE_US           (3 * 1000 * 1000)     /* longer than the pauses inside a tape */
+#define ATTACH_SETTLE_MS     50                     /* line held low before the first pulse */
+static SemaphoreHandle_t pin_lock;
+static esp_timer_handle_t release_timer;
+static bool released;                 /* pin high impedance */
+
+/* Timer: nothing played for RELEASE_US, let go of the EAR line */
+static void release_cb(void *arg)
+{
+    xSemaphoreTake(pin_lock, portMAX_DELAY);
+    if (!released && !seg_open && !sending) {
+        gpio_set_direction(TAPE_GPIO, GPIO_MODE_INPUT);
+        gpio_set_pull_mode(TAPE_GPIO, GPIO_FLOATING);
+        prod_level = 0;                   /* taken back at the low level */
+        rmt_set_idle_level(TAPE_RMT_CHANNEL, true, RMT_IDLE_LEVEL_LOW);
+        released = true;
+        ESP_LOGI(TAG, "EAR line released (high impedance)");
+    }
+    xSemaphoreGive(pin_lock);
+}
+
+static void release_later(void)
+{
+    esp_timer_stop(release_timer);        /* not running: harmless error */
+    esp_timer_start_once(release_timer, RELEASE_US);
+}
+
+/* Producer, before the first entry of a stream (pin_lock held) */
+static void attach(void)
+{
+    esp_timer_stop(release_timer);
+    if (!released) return;
+    rmt_set_gpio(TAPE_RMT_CHANNEL, RMT_MODE_TX, TAPE_GPIO, false);
+    released = false;
+    ESP_LOGI(TAG, "EAR line taken");
+    vTaskDelay(pdMS_TO_TICKS(ATTACH_SETTLE_MS));
+}
 
 /* Next half-item (level, duration in ticks). False at the end of the stream. */
 static inline bool IRAM_ATTR next_half(uint32_t *level, uint32_t *ticks)
@@ -158,6 +204,11 @@ void tape_out_init(void)
     ticks_per_t_q16 = (uint32_t)(((uint64_t)TAPE_RMT_TICK_HZ << 16) / CONFIG_ZXS_CPU_CLOCK_HZ);
     prod_level = 0;
 
+    pin_lock = xSemaphoreCreateMutex();
+    const esp_timer_create_args_t a = { .callback = release_cb, .name = "ear_release" };
+    ESP_ERROR_CHECK(esp_timer_create(&a, &release_timer));
+    release_later();
+
     ESP_LOGI(TAG, "init: GPIO %d, Z80 clock %d Hz, %.4f ticks/T-state",
              CONFIG_ZXS_TAPE_OUT_GPIO, CONFIG_ZXS_CPU_CLOCK_HZ, ticks_per_t_q16 / 65536.0);
 }
@@ -172,11 +223,15 @@ static void start(void)
 static bool push(uint16_t e)
 {
     if (!seg_open) {
-        /* first entry of a stream: the interrupt is idle, reset its state */
+        /* first entry of a stream: take the line back if it was released,
+         * then reset the interrupt state (the interrupt is idle) */
+        xSemaphoreTake(pin_lock, portMAX_DELAY);
+        attach();
         head = tail = 0;
         memset(&isr, 0, sizeof(isr));
         isr.level = prod_level;
         seg_open = true;
+        xSemaphoreGive(pin_lock);
     }
     while (head - __atomic_load_n(&tail, __ATOMIC_ACQUIRE) >= RING_SIZE) {
         if (abort_req) return false;
@@ -233,6 +288,7 @@ bool tape_out_flush(bool final_edge)
     started = false;
     seg_open = false;
     prod_level = idle;
+    release_later();
     if (isr.underruns) {
         ESP_LOGW(TAG, "output starved %u time(s): timing distorted", (unsigned)isr.underruns);
     }

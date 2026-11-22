@@ -58,21 +58,29 @@ menu "ZX Spectrum tape interface"
             Spectrum loads it whenever LOAD "" is typed, with no trigger.
 
     config ZXS_MENU_ON_RESET
-        bool "Loop the menu only from power-up and after a Spectrum reset"
+        bool "Loop the menu only from power-up (no loop after a program)"
         default y
         help
             The menu loops from power-up until the Spectrum has loaded it
             (its reply stops the loop). After a program is loaded the tape
-            stays silent; the loop starts again when a reset (or power-up)
-            of the Spectrum is seen on MIC: the line goes silent during the
-            RAM test. A game stopped at a "stop the tape" mark is dropped by
-            the reset. n = loop the menu again 3 s after every file
-            (ZXS_MENU_RELOOP). The BOOT button and the web buttons work in
-            both modes.
+            stays silent, so the program's sound is not disturbed; the BOOT
+            button or the Loop button of _menu.tap on the web page bring the
+            menu back. n = loop the menu again 3 s after every file
+            (ZXS_MENU_RELOOP).
+
+    config ZXS_MENU_RESET_DETECT
+        bool "Also loop the menu when a Spectrum reset is seen on MIC"
+        depends on ZXS_MENU_ON_RESET
+        default n
+        help
+            The MIC line goes silent during the RAM test after a reset, but
+            some programs (Pssst) are just as silent for seconds while they
+            run, so a running game can start the menu loop by mistake. Off by
+            default for that reason.
 
     config ZXS_MENU_RESET_DELAY_MS
         int "Delay before the menu loop after a Spectrum reset (ms)"
-        depends on ZXS_MENU_ON_RESET
+        depends on ZXS_MENU_RESET_DETECT
         range 0 30000
         default 5000
         help
